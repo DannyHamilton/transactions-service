@@ -13,7 +13,7 @@ Status legend: **Decided** (made by the author or confirmed with the assessment 
 - Concurrency is enforced by a **database unique constraint** on the key. A constraint alone does not replay anything, so the losing request must, after the winner commits, load the stored response (and handle the winner having rolled back).
 - Body equivalence compares **normalized fields directly** instead of hashing canonical JSON. For this small request, field comparison avoids JSON canonicalization (property order, whitespace) altogether. The numeric rule still needs defining (see open questions).
 
-### 2. Concurrency control for PATCH — Proposed
+### 2. Concurrency control for PATCH — Decided
 Exactly one concurrent PATCH wins and the loser gets 409. Candidates: optimistic locking (`@Version`) or a conditional update (`UPDATE … WHERE id = ? AND status = 'PENDING'`, checking the updated row count). The conditional update is arguably simpler and more reliable here because the only invariant is "PENDING may change once", but it is not yet chosen.
 
 ### 3. Error model — Decided
@@ -27,28 +27,23 @@ RFC 9457 `application/problem+json` for all errors. It supersedes RFC 7807, whic
 - **Out of scope:** authentication, authorization, pagination, logging, tracing, metrics, health endpoints, Docker/deployment.
 - **Build:** Maven with wrapper. Spring Boot 3.5.16 (supports Java 17). Compiles for Java 17; verified on JDK 21 (author) and JDK 27 (AI sandbox), so a JDK 17 run is still outstanding.
 
-## Open questions (resolve before implementing; delete this section before submitting)
+## Resolved decisions (formerly open questions)
 
-**Reasoning that is unclear or incomplete**
-1. **UUIDv7 rationale.** The stated reasons are "UUID is a standard and safer than sequential integers", which also holds for UUIDv4. What is the specific reason for v7? (Candidates: time-ordered index locality, natural tie-break ordering for `createdAt`.) Note v7 exposes creation time in the ID.
-2. **Idempotency-Key scope and privacy.** `playerId` is part of the compared body, so a different player reusing a key gets 409 and never sees the original response. Only an identical body (same player) is replayed. Is that sufficient, or does a globally shared key namespace need more (e.g. players guessing each other's keys to probe for existence)?
-3. **Optimistic locking vs conditional update.** Which one, and why? See decision 2.
-4. **Why indefinite retention over a 24 h+ TTL?** Speed is the stated reason; we should state the storage trade-off honestly in the final doc.
-
-**Decisions not yet made**
-5. **Numeric equivalence for body comparison.** Is `10.5` equal to `10.50`? Is `10.500` rejected (scale 3) or accepted because it equals 10.5? Proposal: compare with `compareTo` after rejecting values whose `stripTrailingZeros` scale exceeds 2.
-6. **String normalization.** Is `currency` case-insensitive (normalize to upper case or reject `usd`)? Are strings trimmed? Are `roundId`/`playerId`/`gameName` length-limited or required non-blank?
-7. **Replay status code.** Does a replayed POST return 201 (identical to original) or 200? Proposal: identical response, 201.
-8. **Failed first attempts.** Does a 400 response consume the key? Proposal: no, only successful creations are stored. And if the concurrent winner rolls back, does the loser proceed to create?
-9. **Missing/blank/oversized `Idempotency-Key`** and maximum length. Proposal: 400 if missing or blank, cap at 255 characters.
-10. **PATCH error precedence.** For a non-PENDING transaction with an invalid body, is it 400 or 409? Unknown ID is 404. Proposal: validate body first (400), then 404, then state (409).
-11. **PATCH edge cases.** `status: PENDING` → 400? Cancel with `"winAmount": null` explicitly present → accepted or 400? Negative `winAmount` → 400.
-12. **Malformed IDs/filters.** Non-UUID `{id}`: 400 or 404? Invalid `status` filter: 400?
-13. **Amount range.** Maximum magnitude / column precision (e.g. `NUMERIC(19,2)`); overflow → 400.
-14. **Schema management.** `ddl-auto=update` is a stopgap for the file database; prefer explicit `schema.sql` or Flyway? Proposal: `schema.sql`, to keep the unique constraints visible.
-15. **Package/group naming.** Currently `com.example.transactions`; change if you prefer another.
-16. **UUID library.** `uuid-creator` was selected by the AI assistant; the alternative is `java-uuid-generator`. Confirm.
-17. **Concurrent test technique.** Proposal: `@SpringBootTest(webEnvironment = RANDOM_PORT)` with real HTTP calls, an `ExecutorService` and a start latch, to exercise real transaction boundaries.
+- **UUIDv7 rationale:** time-ordered IDs give better index locality and a natural tie-break after `createdAt`. Trade-off: the ID reveals creation time.
+- **Key scope/privacy:** a different body under an existing key returns 409 and only an identical body, including the same `playerId`, is replayed. Accepted despite no authentication; a guessed key reveals only that it exists.
+- **PATCH concurrency:** conditional update `UPDATE … WHERE id=? AND status='PENDING'`; a row count of 0 means 409 (or 404 if the row is missing). Chosen over `@Version` because it is one atomic statement that encodes the lifecycle rule directly.
+- **Key retention:** indefinite. Trade-off: the key table grows without bound. A TTL cleanup is listed as future work.
+- **Amounts:** numerically compared, so `10.5` equals `10.50`. After `stripTrailingZeros`, scale > 2 returns 400, so `10.500` is accepted. Column is `NUMERIC(19,2)`; overflow returns 400.
+- **Currency:** exactly three uppercase letters and a valid ISO 4217 code (`java.util.Currency`). `usd` returns 400.
+- **Replay:** returns the stored status (201) and body.
+- **Failed attempts:** a 400 does not consume the key. If the concurrent winner rolls back, the waiting loser retries creation.
+- **Idempotency-Key header:** missing or blank returns 400; maximum 255 characters.
+- **PATCH precedence:** body validation 400, then unknown ID 404, then non-PENDING state 409.
+- **PATCH edge cases:** `status: PENDING` returns 400; negative `winAmount` returns 400; explicit `"winAmount": null` on cancel is accepted.
+- **Malformed inputs:** non-UUID `{id}` returns 400; invalid `status` filter returns 400.
+- **Schema:** explicit `schema.sql` with `spring.jpa.hibernate.ddl-auto=none`, so the unique key constraint is visible.
+- **Package and UUID library:** `com.example.transactions` and `uuid-creator` 6.1.1 confirmed.
+- **Concurrency tests:** `@SpringBootTest(webEnvironment = RANDOM_PORT)`, real HTTP, `ExecutorService` and a start latch.
 
 ## AI suggestions
 
@@ -57,7 +52,7 @@ RFC 9457 `application/problem+json` for all errors. It supersedes RFC 7807, whic
 | UUIDv4 / sequential IDs | Rejected in favor of UUIDv7 | See open question 1. |
 | SHA-256 fingerprint of canonicalized request | Modified (tentatively rejected) | Needs JSON canonicalization and numeric normalization; direct field comparison is simpler for a four-field-plus body. |
 | RFC 7807 problem+json | Modified | RFC 9457 supersedes it. |
-| Optimistic locking for PATCH | Pending | See decision 2. |
+| Optimistic locking for PATCH | Rejected (conditional update chosen) | See decision 2. |
 | `uuid-creator` library; Spring Boot 3.5.16; file-backed H2 without `AUTO_SERVER` | Accepted, pending confirmation | Scaffold choices; see open question 16. |
 
 *To be completed with real outcomes as development proceeds, including any case where AI output was wrong and how it was caught.*
