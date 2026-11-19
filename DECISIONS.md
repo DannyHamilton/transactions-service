@@ -29,7 +29,7 @@ RFC 9457 `application/problem+json` for all errors. It supersedes RFC 7807, whic
 - **Schema:** explicit `schema.sql` (`CREATE TABLE IF NOT EXISTS`, `spring.sql.init.mode=always`) with `spring.jpa.hibernate.ddl-auto=none`, so the unique key constraint is visible and the file-backed database survives restarts.
 - **Package:** `com.example.transactions` kept.
 - **Out of scope:** authentication, authorization, pagination, logging, tracing, metrics, health endpoints, Docker/deployment.
-- **Build:** Maven with wrapper. Spring Boot 3.5.16 (supports Java 17). Compiles for Java 17; verified on JDK 21, so a JDK 17 run is still outstanding.
+- **Build:** Maven with wrapper. Spring Boot 3.5.16 (supports Java 17). Compiles for Java 17; all 84 tests pass on JDK 17.0.21 (Temurin) and JDK 21.
 - **Tests:** written first and run to confirm they failed (79 of 84), then the implementation was added until all passed. Black-box HTTP against the real server and H2 (`@SpringBootTest(webEnvironment = RANDOM_PORT)`), using `java.net.http.HttpClient`; concurrency tests use an `ExecutorService` and a start latch.
 
 ## AI suggestions
@@ -49,6 +49,5 @@ RFC 9457 `application/problem+json` for all errors. It supersedes RFC 7807, whic
 *To be completed with real outcomes as development proceeds, including any case where AI output was wrong and how it was caught.*
 
 ## Unfinished / next steps
-- Verify on a JDK 17 runtime (all 84 tests pass on JDK 21).
 - Multi-instance behavior: file-backed H2 is single-instance only; a shared server database (e.g. PostgreSQL) would be required, and the unique-constraint and conditional-update approaches would carry over.
 - Idempotency key expiry job; auth, observability, deployment.
