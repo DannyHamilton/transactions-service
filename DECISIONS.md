@@ -47,5 +47,6 @@ RFC 9457 `application/problem+json` for all errors. It supersedes RFC 7807, whic
 | Spring Data `saveAndFlush` for key and transaction inserts | **Wrong; fixed** | With an application-assigned ID, Spring Data calls `merge()`, so a losing concurrent POST UPDATED the winner's key row instead of failing on the duplicate. The concurrency test caught it: 2–5 transactions existed for one key. Fixed with `Persistable` (`AssignedIdEntity`) so inserts use `persist()`. |
 
 ## Known limitations / next steps
+See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list. Highlights:
 - Multi-instance behavior: file-backed H2 is single-instance only; a shared server database (e.g. PostgreSQL) would be required, and the unique-constraint and conditional-update approaches would carry over.
 - Idempotency key expiry job; auth, observability, deployment.
