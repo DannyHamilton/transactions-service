@@ -2,7 +2,7 @@
 
 A small Spring Boot REST service that records casino wagers and their outcomes (create → complete or cancel) and stays correct when clients retry or send conflicting requests concurrently.
 
-> **Status:** project scaffold only. Dependencies, configuration and a persistence smoke test are in place; the endpoints below are **not implemented yet**. See [DECISIONS.md](DECISIONS.md) for design reasoning, open questions and unfinished work.
+> **Status:** all endpoints below are implemented and covered by tests. See [DECISIONS.md](DECISIONS.md) for design reasoning and unfinished work.
 
 ## Requirements
 
@@ -19,7 +19,7 @@ A small Spring Boot REST service that records casino wagers and their outcomes (
 
 Tests use an in-memory H2 database (`src/test/resources/application.properties`) through the real JPA stack, with no mocked repositories. The application itself uses a file-backed H2 database at `./data/transactions` so data survives restarts. Delete `./data` to reset it. The file-backed database is for a single running instance only.
 
-## API (planned)
+## API
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ Tests use an in-memory H2 database (`src/test/resources/application.properties`)
 
 Errors are returned as RFC 9457 `application/problem+json`.
 
-### Example requests (once implemented)
+### Example requests
 
 ```bash
 # Create (retrying with the same Idempotency-Key and body returns the original response)

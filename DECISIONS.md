@@ -30,7 +30,7 @@ RFC 9457 `application/problem+json` for all errors. It supersedes RFC 7807, whic
 - **Package:** `com.example.transactions` kept.
 - **Out of scope:** authentication, authorization, pagination, logging, tracing, metrics, health endpoints, Docker/deployment.
 - **Build:** Maven with wrapper. Spring Boot 3.5.16 (supports Java 17). Compiles for Java 17; verified on JDK 21, so a JDK 17 run is still outstanding.
-- **Tests:** written first and run to confirm they fail. Black-box HTTP against the real server and H2 (`@SpringBootTest(webEnvironment = RANDOM_PORT)`), using `java.net.http.HttpClient`; concurrency tests use an `ExecutorService` and a start latch.
+- **Tests:** written first and run to confirm they failed (79 of 84), then the implementation was added until all passed. Black-box HTTP against the real server and H2 (`@SpringBootTest(webEnvironment = RANDOM_PORT)`), using `java.net.http.HttpClient`; concurrency tests use an `ExecutorService` and a start latch.
 
 ## AI suggestions
 
@@ -44,11 +44,11 @@ RFC 9457 `application/problem+json` for all errors. It supersedes RFC 7807, whic
 | Spring Boot 3.5.16; file-backed H2 without `AUTO_SERVER` | Accepted | Scaffold choices. |
 | Replay storage, POST race handling, string rules, `Location` header and two-decimal amounts, `schema.sql` | Accepted | Proposed during planning; see decisions above. |
 | Black-box tests via `java.net.http.HttpClient` | Accepted | `HttpURLConnection` (the default behind `TestRestTemplate`) cannot send PATCH. |
+| Spring Data `saveAndFlush` for key and transaction inserts | **Wrong; fixed** | With an application-assigned ID, Spring Data calls `merge()`, so a losing concurrent POST UPDATED the winner's key row instead of failing on the duplicate. The concurrency test caught it: 2–5 transactions existed for one key. Fixed with `Persistable` (`AssignedIdEntity`) so inserts use `persist()`. |
 
 *To be completed with real outcomes as development proceeds, including any case where AI output was wrong and how it was caught.*
 
 ## Unfinished / next steps
-- API, idempotency and concurrency control (tests written and failing; implementation not started).
-- Verify on a JDK 17 runtime.
+- Verify on a JDK 17 runtime (all 84 tests pass on JDK 21).
 - Multi-instance behavior: file-backed H2 is single-instance only; a shared server database (e.g. PostgreSQL) would be required, and the unique-constraint and conditional-update approaches would carry over.
 - Idempotency key expiry job; auth, observability, deployment.
