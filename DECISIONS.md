@@ -19,13 +19,13 @@ Exactly one concurrent PATCH wins; the loser gets 409. Chosen: conditional updat
 RFC 9457 `application/problem+json` for all errors. It supersedes RFC 7807, which the assessment mentions. Spring's `spring.mvc.problemdetails.enabled=true` only covers Spring MVC's own exceptions, so domain errors need a `@RestControllerAdvice`.
 
 ### Other decisions
-- **Transaction IDs:** UUIDv7 (time-ordered, RFC 9562); Java 17 has no generator, so we use `uuid-creator` 6.1.1. Chosen over sequential integers because IDs are not enumerable and can be generated without coordination across instances, and over UUIDv4 for index locality and a natural tie-break after `createdAt`. Trade-offs: a UUID is not a security control, and v7 reveals creation time.
+- **Transaction IDs:** UUIDv7 (time-ordered, RFC 9562); Java 17 has no generator, so we use `uuid-creator` 6.1.1. Chosen over sequential integers because IDs are not enumerable and can be generated without coordination across instances, and over UUIDv4 for index locality and a natural tie-break after `createdAt`. Trade-off: v7 reveals creation time.
 - **Amounts:** numerically compared; after `stripTrailingZeros`, scale > 2 → 400 (never rounded), so `10.500` is accepted. Column is `NUMERIC(19,2)`; overflow → 400. Responses always render two decimals.
 - **Strings:** `roundId`, `playerId`, `gameName` are `@NotBlank`, max 255. `currency` is a three-letter uppercase valid ISO 4217 code (`java.util.Currency`); `usd` → 400.
 - **Request rules:** missing or blank `Idempotency-Key` → 400. PATCH precedence: body validation 400, then unknown ID 404, then non-PENDING 409. `status: PENDING`, negative `winAmount` → 400; explicit `"winAmount": null` on cancel is accepted. Non-UUID `{id}` and invalid `status` filter → 400.
 - **Responses:** POST returns 201 with a `Location` header.
 - **List ordering:** `createdAt`, then transaction ID. Confirmed with the assessment contact.
-- **Persistence:** H2. Application uses a **file-backed** database, tests use **in-memory**. H2 automatic mixed mode (`AUTO_SERVER=TRUE`) was considered and **not** used: it only helps multiple processes sharing one file, and shared-file locking is fragile on network filesystems. File-backed storage may be dropped if time is short.
+- **Persistence:** H2. Application uses a **file-backed** database, tests use **in-memory**. H2 automatic mixed mode (`AUTO_SERVER=TRUE`) was considered and **not** used: it only helps multiple processes sharing one file, and shared-file locking is fragile on network filesystems.
 - **Schema:** explicit `schema.sql` (`CREATE TABLE IF NOT EXISTS`, `spring.sql.init.mode=always`) with `spring.jpa.hibernate.ddl-auto=none`, so the unique key constraint is visible and the file-backed database survives restarts.
 - **Package:** `com.example.transactions` kept.
 - **Out of scope:** authentication, authorization, pagination, logging, tracing, metrics, health endpoints, Docker/deployment.
