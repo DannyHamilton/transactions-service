@@ -2,7 +2,7 @@
 
 A small Spring Boot REST service that records casino wagers and their outcomes (create → complete or cancel) and stays correct when clients retry or send conflicting requests concurrently.
 
-> **Status:** all endpoints below are implemented and covered by tests. See [DECISIONS.md](DECISIONS.md) for design reasoning and unfinished work.
+> **Status:** all endpoints below are implemented and covered by tests. See [DECISIONS.md](DECISIONS.md) for design reasoning, known limitations and next steps.
 
 ## Requirements
 

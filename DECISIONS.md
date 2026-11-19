@@ -3,7 +3,7 @@
 ## Design decisions
 
 ### 1. Idempotency strategy
-- `Idempotency-Key` is **globally unique** across creation requests, not scoped per player (confirmed with the assessment contact, Trace). A different body under an existing key gets 409 and only an identical body (including `playerId`) is replayed, so a guessed key reveals only that it exists.
+- `Idempotency-Key` is **globally unique** across creation requests, not scoped per player (confirmed with the assessment contact, Trace). Only an equivalent body is replayed; any other body gets 409. A guessed key therefore reveals only that it exists, never the original response.
 - Keys are retained **indefinitely**; the requirement is ≥ 24 h and expiry is not required. Trade-off: unbounded growth of the key table; a TTL cleanup job is the next step.
 - Same key and equivalent body → the **original response** (201, stored body) is replayed, whether the requests are sequential or concurrent. Elapsed time is deliberately irrelevant.
 - Same key and different body → **409 Conflict**; nothing is processed.
@@ -46,8 +46,6 @@ RFC 9457 `application/problem+json` for all errors. It supersedes RFC 7807, whic
 | Black-box tests via `java.net.http.HttpClient` | Accepted | `HttpURLConnection` (the default behind `TestRestTemplate`) cannot send PATCH. |
 | Spring Data `saveAndFlush` for key and transaction inserts | **Wrong; fixed** | With an application-assigned ID, Spring Data calls `merge()`, so a losing concurrent POST UPDATED the winner's key row instead of failing on the duplicate. The concurrency test caught it: 2–5 transactions existed for one key. Fixed with `Persistable` (`AssignedIdEntity`) so inserts use `persist()`. |
 
-*To be completed with real outcomes as development proceeds, including any case where AI output was wrong and how it was caught.*
-
-## Unfinished / next steps
+## Known limitations / next steps
 - Multi-instance behavior: file-backed H2 is single-instance only; a shared server database (e.g. PostgreSQL) would be required, and the unique-constraint and conditional-update approaches would carry over.
 - Idempotency key expiry job; auth, observability, deployment.
