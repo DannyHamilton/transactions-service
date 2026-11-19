@@ -3,10 +3,10 @@
 ## Design decisions
 
 ### 1. Idempotency strategy
-- `Idempotency-Key` is **globally unique** across creation requests, not scoped per player (confirmed with the assessment contact, Trace). Only an equivalent body is replayed; any other body gets 409. A guessed key therefore reveals only that it exists, never the original response.
+- `Idempotency-Key` is **globally unique** across creation requests, not scoped per player (confirmed with the assessment contact, Trace).
 - Keys are retained **indefinitely**; the requirement is ≥ 24 h and expiry is not required. Trade-off: unbounded growth of the key table; a TTL cleanup job is the next step.
 - Same key and equivalent body → the **original response** (201, stored body) is replayed, whether the requests are sequential or concurrent. Elapsed time is deliberately irrelevant.
-- Same key and different body → **409 Conflict**; nothing is processed.
+- Same key and different body → **409 Conflict**; nothing is processed. A guessed key therefore reveals only that it exists, never the original response.
 - The key table stores the key (unique, max 255 characters), the normalized request fields, the transaction ID and the original response status and JSON body. The response is replayed from this record, not rebuilt from the transaction, which may since have been completed or cancelled.
 - Concurrency is enforced by a **database unique constraint**. The key claim and the transaction insert commit in one database transaction. The loser handles the constraint violation outside that transaction, then loads the key row: same body → replay; different body → 409; row absent (winner rolled back) → retry creation. A unique constraint alone does not replay anything.
 - Body equivalence compares **normalized fields directly** instead of hashing canonical JSON, which avoids canonicalization of property order and whitespace. Amounts compare numerically, so `10.5` equals `10.50`.
